@@ -65,7 +65,11 @@ class AssertPFSRoutesTask(RESTAPIActionTask):
         params = dict(pfs_url=pfs_url, token_network_address=self._runner.token_network_address)
         return params
 
-    def _process_response(self, response_dict: dict):
+    def _process_response(self, response):
+        if response.status_code == 404:
+            return "PFS doesn't support debug endpoint"
+
+        response_dict = super()._decode_response(response)
         paths = response_dict.get("result")
         if paths is None:
             raise ScenarioAssertionError("No 'result' key in result from PFS")
@@ -206,7 +210,12 @@ class AssertPFSHistoryTask(RESTAPIActionTask):
         )
         return params
 
-    def _process_response(self, response_dict: dict):
+    def _process_response(self, response):
+        if response.status_code == 404:
+            return "PFS doesn't support debug endpoint"
+
+        response_dict = self._decode_response(response)
+
         exp_request_count = self._config.get("request_count")
         if exp_request_count:
             actual_request_count = response_dict["request_count"]
@@ -343,7 +352,12 @@ class AssertPFSIOUTask(RESTAPIActionTask):
 
         return dict(pfs_url=pfs_url, source_address=source_address)
 
-    def _process_response(self, response_dict: Dict[str, Any]):
+    def _process_response(self, response):
+        if response.status_code == 404:
+            return "PFS doesn't support debug endpoint"
+
+        response_dict = self._decode_response(response)
+
         if self._config.get("iou_exists", True) is False:
             if response_dict:
                 raise ScenarioAssertionError(f"Expected no IOU but got {response_dict}.")

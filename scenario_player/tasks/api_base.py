@@ -34,8 +34,8 @@ class RESTAPIActionTask(Task):
     def _url_params(self):
         return {}
 
-    def _process_response(self, response_dict: dict):  # pylint: disable=no-self-use
-        return response_dict
+    def _process_response(self, response):  # pylint: disable=no-self-use
+        return self._decode_response(response)
 
     def _run(self, *args, **kwargs):  # pylint: disable=unused-argument
         url = self._expand_url()
@@ -53,23 +53,28 @@ class RESTAPIActionTask(Task):
             raise RESTAPIError(
                 f"Error performing REST-API call: {self._name}"  # pylint: disable=no-member
             ) from ex
-        if not self._http_status_re.match(str(resp.status_code)):
+        processed_response_dict = self._process_response(resp)
+        log.debug("Received response", json=processed_response_dict)
+        return processed_response_dict
+
+    def _decode_response(self, response) -> dict:
+        url = response.request.url
+        if not self._http_status_re.match(str(response.status_code)):
             raise RESTAPIStatusMismatchError(
-                f'HTTP status code "{resp.status_code}" while fetching {url}. '
-                f"Expected {self._expected_http_status}: {resp.text}"
+                f'HTTP status code "{response.status_code}" while fetching {url}. '
+                f"Expected {self._expected_http_status}: {response.text}"
             )
         try:
-            if resp.content == b"":
+            if response.content == b"":
                 # Allow empty responses
                 response_dict = {}
             else:
-                response_dict = resp.json()
+                response_dict = response.json()
+            return response_dict
 
-            log.debug("Received response", json=response_dict)
-            return self._process_response(response_dict)
         except ValueError as ex:
             raise RESTAPIError(
-                f"Error decoding response for url {url}: {resp.status_code} {resp.text}"
+                f"Error decoding response for url {url}: {response.status_code} {response.text}"
             ) from ex
 
     def _expand_url(self):
